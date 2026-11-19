@@ -152,7 +152,10 @@ ${text}`;
 
   // 2. 정적 파일 서비스 (index.html, style.css, script.js 등)
   let filePath = reqUrl.pathname === '/' ? '/index.html' : reqUrl.pathname;
-  const fullPath = path.join(__dirname, filePath);
+  let fullPath = path.join(__dirname, 'public', filePath);
+  if (!fs.existsSync(fullPath)) {
+    fullPath = path.join(__dirname, filePath);
+  }
 
   // 보안: 디렉토리 탐색 방지
   if (!fullPath.startsWith(__dirname)) {
