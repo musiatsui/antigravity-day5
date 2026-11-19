@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 감정일기</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 헤더 / 서비스명 -->
+    <header class="app-header">
+      <span class="badge">📖 AI 감정일기</span>
+      <h1 class="main-title">오늘 하루는 어땠나요?</h1>
+      <p class="subtitle">오늘 있었던 일과 느꼈던 솔직한 감정을 기록해 보세요.</p>
+    </header>
+
+    <!-- 일기 입력 영역 -->
+    <main class="diary-section">
+      <div class="textarea-wrapper">
+        <textarea
+          id="diaryInput"
+          placeholder="오늘 하루 있었던 일이나 마음에 남은 생각, 감정을 자유롭게 적어보세요..."
+          rows="8"
+        ></textarea>
+        <div class="char-count"><span id="charCount">0</span>자</div>
+      </div>
+
+      <!-- 액션 버튼 영역 -->
+      <div class="button-group">
+        <button type="button" id="voiceBtn" class="btn btn-secondary">
+          <span class="btn-icon">🎙️</span>
+          <span id="voiceBtnText">음성으로 입력하기</span>
+        </button>
+        <button type="button" id="analyzeBtn" class="btn btn-primary">
+          <span class="btn-icon">✨</span>
+          <span>분석 요청하기</span>
+        </button>
+      </div>
+
+      <!-- AI 답변 영역 -->
+      <section class="ai-response-section">
+        <h2 class="sub-title">AI의 답변</h2>
+        <div id="aiResponseBox" class="response-box">
+          여기에 AI의 답변이 표시 됩니다.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
