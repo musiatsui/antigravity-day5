@@ -1,25 +1,21 @@
 import http from 'node:http';
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 정적 파일 인메모리 로드 (Vercel Serverless 번들링 및 초고속 서빙)
+const INDEX_HTML = fs.readFileSync(new URL('./index.html', import.meta.url), 'utf-8');
+const STYLE_CSS = fs.readFileSync(new URL('./style.css', import.meta.url), 'utf-8');
+const SCRIPT_JS = fs.readFileSync(new URL('./script.js', import.meta.url), 'utf-8');
+
+const STATIC_FILES = {
+  '/': { content: INDEX_HTML, type: 'text/html; charset=UTF-8' },
+  '/index.html': { content: INDEX_HTML, type: 'text/html; charset=UTF-8' },
+  '/style.css': { content: STYLE_CSS, type: 'text/css; charset=UTF-8' },
+  '/script.js': { content: SCRIPT_JS, type: 'text/javascript; charset=UTF-8' }
+};
 
 // 환경변수에서 설정값 가져오기
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-// MIME 타입 매핑
-const MIME_TYPES = {
-  '.html': 'text/html; charset=UTF-8',
-  '.css': 'text/css; charset=UTF-8',
-  '.js': 'text/javascript; charset=UTF-8',
-  '.json': 'application/json; charset=UTF-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.svg': 'image/svg+xml'
-};
 
 const server = http.createServer(async (req, res) => {
   // CORS 헤더 설정
@@ -33,7 +29,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const reqUrl = new URL(req.url, `http://${req.headers.host}`);
+  const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   // 1. 감정 분석 API 엔드포인트: POST /api/analyze
   if (req.method === 'POST' && reqUrl.pathname === '/api/analyze') {
@@ -52,11 +48,11 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // 환경변수 확인
-        if (!GEMINI_API_KEY) {
+        const apiKey = process.env.GEMINI_API_KEY || GEMINI_API_KEY;
+        if (!apiKey) {
           res.writeHead(500, { 'Content-Type': 'application/json; charset=UTF-8' });
           res.end(JSON.stringify({
-            error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다. .env 파일을 확인해 주세요.'
+            error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Vercel 프로젝트 설정의 Environment Variables에 GEMINI_API_KEY를 등록해 주세요.'
           }));
           return;
         }
@@ -82,14 +78,14 @@ ${text}`;
         for (const model of candidateModels) {
           try {
             console.log(`[Gemini API] 모델 시도 중: ${model}`);
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
             const apiResponse = await fetch(geminiUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
-              signal: AbortSignal.timeout(12000),
+              signal: AbortSignal.timeout(15000),
               body: JSON.stringify({
                 contents: [
                   {
@@ -150,43 +146,28 @@ ${text}`;
     return;
   }
 
-  // 2. 정적 파일 서비스 (index.html, style.css, script.js 등)
-  let filePath = reqUrl.pathname === '/' ? '/index.html' : reqUrl.pathname;
-  let fullPath = path.join(__dirname, 'public', filePath);
-  if (!fs.existsSync(fullPath)) {
-    fullPath = path.join(__dirname, filePath);
-  }
-
-  // 보안: 디렉토리 탐색 방지
-  if (!fullPath.startsWith(__dirname)) {
-    res.writeHead(403);
-    res.end('Forbidden');
+  // 2. 정적 파일 인메모리 서비스
+  const staticAsset = STATIC_FILES[reqUrl.pathname];
+  if (staticAsset) {
+    res.writeHead(200, { 'Content-Type': staticAsset.type });
+    res.end(staticAsset.content);
     return;
   }
 
-  const ext = path.extname(fullPath).toLowerCase();
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  // 404 처리
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=UTF-8' });
+  res.end('404 Not Found');
+});
 
-  fs.readFile(fullPath, (err, content) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=UTF-8' });
-        res.end('404 Not Found');
-      } else {
-        res.writeHead(500);
-        res.end(`Server Error: ${err.code}`);
-      }
-    } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content);
-    }
+// Vercel Serverless Function으로 내보내기 (Vercel 배포 지원)
+export default server;
+
+// 로컬 환경 실행
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`=========================================`);
+    console.log(`🚀 AI 감정일기 서버가 실행되었습니다!`);
+    console.log(`🔗 로컬 접속 주소: http://localhost:${PORT}`);
+    console.log(`=========================================`);
   });
-});
-
-server.listen(PORT, () => {
-  console.log(`=========================================`);
-  console.log(`🚀 AI 감정일기 서버가 실행되었습니다!`);
-  console.log(`🔗 로컬 접속 주소: http://localhost:${PORT}`);
-  console.log(`🔑 GEMINI_API_KEY 로드 완료: ${GEMINI_API_KEY ? '성공 (설정됨)' : '미설정'}`);
-  console.log(`=========================================`);
-});
+}
